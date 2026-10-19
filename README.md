@@ -133,6 +133,19 @@ and uploads every finding as an artifact. How to run them locally:
 [fuzz/README.md](fuzz/README.md).
 
 <!-- FUZZ-RESULTS -->
+Last local campaign, 2026-10-19 (Apple Silicon, nightly + ASAN,
+`-max_len=4096 -rss_limit_mb=2048 -timeout=60`):
+
+| Target | Duration | Execs | Final coverage | Result |
+|--------|----------|-------|----------------|--------|
+| `fuzz_nal_scanner` | 20 min | 23.9M | cov 446 / ft 1568; no new feature for the final 4.0M execs | no crash, timeout or slow unit |
+| `fuzz_manifest_parser` | 30 min | 118.7M | cov 2065 / ft 8945; no new edge for the final 45.5M execs | no crash, timeout or slow unit |
+
+Both runs saturated: the scanner reached a coverage plateau, and the manifest
+target passed 100M execs with no new coverage at the end. The
+`fuzz_manifest_parser` coverage includes the in-context `serde_json` record
+parsers it also exercises. No artifact was produced; there was nothing to
+triage.
 
 ## Known limits (stated, not hidden)
 
