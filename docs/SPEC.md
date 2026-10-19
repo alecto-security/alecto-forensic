@@ -399,9 +399,17 @@ bytes:
 | `fuzz_nal_scanner` | The Annex-B NAL scanner and stream grouper (`src/scan.rs`, `src/carve.rs`). |
 | `fuzz_manifest_parser` | The package manifest parser used by `verify-package` (`src/verify.rs`). |
 
-The corpus is seeded from the test data (`fuzz/seeds/`). Result: no crashes
-at launch. See `README.md` for the last-run exec counts, and
-`fuzz/README.md` for how to run them.
+The corpus is seeded from the test data (`fuzz/seeds/`). Last local campaign,
+2026-10-19 (nightly + ASAN, `-max_len=4096 -rss_limit_mb=2048 -timeout=60`):
+
+| Target | Duration | Execs | Final coverage | Result |
+|--------|----------|-------|----------------|--------|
+| `fuzz_nal_scanner` | 20 min | 23.9M | cov 446 / ft 1568; no new feature for the final 4.0M execs | no crash, timeout or slow unit |
+| `fuzz_manifest_parser` | 30 min | 118.7M | cov 2065 / ft 8945; no new edge for the final 45.5M execs | no crash, timeout or slow unit |
+
+Both runs saturated; `fuzz_manifest_parser` coverage includes the in-context
+`serde_json` record parsers it also exercises. No artifact was produced.
+`fuzz/README.md` has the commands.
 
 Inputs are capped at 4 KiB, so the scanner's `compact()` path (reached only
 after 4 MiB of consumed input) is covered by the 22 MiB cross-chunk
