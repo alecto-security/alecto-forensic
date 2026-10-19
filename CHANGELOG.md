@@ -9,15 +9,6 @@ The extraction package schema is versioned separately by its `v` field (see
 
 ## [Unreleased]
 
-### Repo visibility
-
-- Private. Go-public preparation is complete: launch checklist, both
-  cargo-fuzz targets, blocking test+clippy CI plus nightly non-blocking
-  fuzzing, self-contained spec, scrubbed README. The flip to public is a
-  pending decision; when made, this changelog's first public entry ships
-  alongside the launch post. Repo and history are clean of private-repo
-  references (verified).
-
 ## [0.1.0] - 2026-10-19
 
 First public release. MVP: format-agnostic H.264 carving (F0).
