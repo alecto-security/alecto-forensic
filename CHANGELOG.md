@@ -9,6 +9,14 @@ The extraction package schema is versioned separately by its `v` field (see
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-19
+
+### Fixed
+
+- `LICENSE` is now the official Apache-2.0 text, verbatim. The v0.1.0 file
+  reworded several clauses, so it was not the Apache License as published and
+  GitHub could not detect it. No code changed.
+
 ## [0.1.0] - 2026-10-19
 
 First public release. MVP: format-agnostic H.264 carving (F0).
@@ -67,5 +75,6 @@ First public release. MVP: format-agnostic H.264 carving (F0).
   the public launch.
 - `LICENSE`: Apache-2.0.
 
-[Unreleased]: https://github.com/alecto-security/alecto-forensic/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/alecto-security/alecto-forensic/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/alecto-security/alecto-forensic/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/alecto-security/alecto-forensic/releases/tag/v0.1.0

@@ -1,6 +1,6 @@
 [package]
 name = "alecto-forensic"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "Offline, read-only carving of H.264 footage from recorder disk images into a verifiable extraction package"
