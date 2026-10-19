@@ -4,12 +4,65 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # Nightly fuzzing. UTC.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
+    name: test + clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
       - name: Test
         run: cargo test
+
+  fuzz:
+    # Coverage-guided fuzzing runs nightly, never on a PR. It is deliberately
+    # non-blocking: a finding fails this job and lands as an artifact, but it
+    # does not block a merge or a release. The blocking job is `test`.
+    name: fuzz (${{ matrix.target }})
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [fuzz_nal_scanner, fuzz_manifest_parser]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      - name: Seed corpus
+        run: |
+          mkdir -p "fuzz/corpus/${{ matrix.target }}"
+          ls -l "fuzz/seeds/${{ matrix.target }}"
+      - name: Fuzz for 30 minutes
+        run: |
+          cargo +nightly fuzz run "${{ matrix.target }}" \
+            "fuzz/corpus/${{ matrix.target }}" \
+            "fuzz/seeds/${{ matrix.target }}" \
+            -- -max_total_time=1800 -max_len=4096 -rss_limit_mb=2048 -timeout=60 -print_final_stats=1
+      - name: Upload findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-${{ matrix.target }}
+          path: |
+            fuzz/artifacts/${{ matrix.target }}/
+            fuzz/corpus/${{ matrix.target }}/
+          if-no-files-found: ignore
+          retention-days: 30

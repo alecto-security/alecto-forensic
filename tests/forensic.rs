@@ -1,5 +1,5 @@
-//! QA matrix F-T1..F-T6 from alecto-docs/engineering/build/forensic-spec.md.
-//! F-T7 (gateway `ingest`) lives in the alecto-gateway repo.
+//! QA matrix F-T1..F-T6; the test plan is in `docs/SPEC.md`.
+//! F-T7 (a downstream sealed bundle) is covered outside this repo.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -159,24 +159,33 @@ fn ft1_image_is_read_only_and_unchanged() {
     fs::set_permissions(&image, perms).unwrap();
 }
 
-// F-T2: no network capability in the dependency tree.
+// F-T2: no network capability in the dependency tree, including the fuzz
+// workspace. `fuzz/Cargo.lock` is committed so this check needs no fuzz run.
 #[test]
 fn ft2_dependency_tree_has_no_network_crates() {
-    let lock = fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.lock")).unwrap();
     let banned = [
         "reqwest", "hyper", "tokio", "axum", "ureq", "isahc", "surf", "curl", "openssl", "native-tls",
         "rustls", "mio", "socket2", "h2", "tower", "warp", "actix", "async-std",
     ];
-    for name in banned {
-        assert!(
-            !lock.contains(&format!("name = \"{name}\"")),
-            "network-capable crate {name} is in the dependency tree"
-        );
+    let locks = [
+        concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.lock"),
+        concat!(env!("CARGO_MANIFEST_DIR"), "/fuzz/Cargo.lock"),
+    ];
+    for path in locks {
+        let lock = fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("{path}: {e}"));
+        for name in banned {
+            assert!(
+                !lock.contains(&format!("name = \"{name}\"")),
+                "network-capable crate {name} is in the dependency tree of {path}"
+            );
+        }
     }
 }
 
 // F-T6: fuzz-style smoke. Hostile input must never panic or hang.
-// ponytail: deterministic mutation smoke, not coverage-guided; add cargo-fuzz before real disks.
+// The coverage-guided harnesses are in `fuzz/`; this stays as a fast,
+// deterministic regression net that runs on every `cargo test`.
 #[test]
 fn ft6_hostile_inputs_do_not_panic() {
     let p = Params { max_nal: 1 << 20, ..Params::default() };
@@ -249,6 +258,39 @@ fn verify_package_catches_tamper_and_strays() {
 
     fs::write(out.join("stray.txt"), b"x").unwrap();
     assert!(verify_package(&out).unwrap().iter().any(|p| p.contains("stray.txt")));
+}
+
+#[test]
+fn verify_rejects_index_path_outside_the_package() {
+    let dir = TempDir::new().unwrap();
+    let image = write_image(dir.path(), "disk.img", &[noise(500, 1), fake_stream(5, 3), vec![0; 64]]);
+    let out = dir.path().join("pkg");
+    extract(&image, &out, &input(), &separate()).unwrap();
+
+    let mut index: serde_json::Value =
+        serde_json::from_slice(&fs::read(out.join("index.json")).unwrap()).unwrap();
+    index["entries"][0]["file"] = "../outside.h264".into();
+    fs::write(out.join("index.json"), serde_json::to_vec(&index).unwrap()).unwrap();
+
+    let problems = verify_package(&out).unwrap();
+    assert!(
+        problems.iter().any(|p| p.contains("path rejected")),
+        "traversal path in index.json was not rejected: {problems:?}"
+    );
+}
+
+// A hostile package with a symlink loop must be reported, never walked forever.
+#[cfg(unix)]
+#[test]
+fn hostile_symlink_loop_is_reported_not_followed() {
+    use std::os::unix::fs::symlink;
+    let dir = TempDir::new().unwrap();
+    let image = write_image(dir.path(), "disk.img", &[noise(500, 1), fake_stream(5, 3), vec![0; 64]]);
+    let out = dir.path().join("pkg");
+    extract(&image, &out, &input(), &separate()).unwrap();
+    symlink(".", out.join("loopdir")).unwrap();
+    let problems = verify_package(&out).unwrap();
+    assert!(problems.iter().any(|p| p.contains("loopdir")), "{problems:?}");
 }
 
 #[test]

@@ -74,7 +74,30 @@ struct Building {
 }
 
 pub fn carve<R: Read>(reader: R, params: &Params) -> std::io::Result<Carved> {
-    let mut scanner = Scanner::new(reader, params.max_nal);
+    carve_with(reader, params, None)
+}
+
+/// Like [`carve`], but reads in `chunk`-byte steps instead of the default
+/// 8 MiB. Tests and fuzz targets use a small chunk to exercise the
+/// cross-chunk boundary logic and to run far faster. It does not change which
+/// bytes are read or what is recovered.
+pub fn carve_with_chunk<R: Read>(
+    reader: R,
+    params: &Params,
+    chunk: usize,
+) -> std::io::Result<Carved> {
+    carve_with(reader, params, Some(chunk))
+}
+
+fn carve_with<R: Read>(
+    reader: R,
+    params: &Params,
+    chunk: Option<usize>,
+) -> std::io::Result<Carved> {
+    let mut scanner = match chunk {
+        Some(chunk) => Scanner::with_read_chunk(reader, params.max_nal, chunk),
+        None => Scanner::new(reader, params.max_nal),
+    };
     let mut streams: Vec<Stream> = Vec::new();
     let mut gaps: Vec<Gap> = Vec::new();
     let mut current: Option<Building> = None;
