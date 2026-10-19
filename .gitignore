@@ -2,3 +2,9 @@
 /out
 *.img
 .DS_Store
+
+# cargo-fuzz build products and mutable state. `fuzz/seeds/` is committed.
+/fuzz/target
+/fuzz/corpus
+/fuzz/artifacts
+/fuzz/coverage

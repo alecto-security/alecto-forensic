@@ -11,6 +11,11 @@ use sha2::{Digest, Sha256};
 
 const CHUNK: usize = 8 << 20;
 const COMPACT_AT: usize = 4 << 20;
+/// Smallest read chunk accepted. Below this the lookahead for a start code that
+/// straddles a read would be starved.
+const MIN_CHUNK: usize = 16;
+/// Largest read chunk accepted, so a caller cannot ask for an absurd buffer.
+const MAX_CHUNK: usize = 64 << 20;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Nal {
@@ -42,6 +47,10 @@ pub struct Scanner<R: Read> {
     hasher: Sha256,
     total: u64,
     max_nal: usize,
+    /// Read granularity. Production uses `CHUNK`; tests and fuzz targets use a
+    /// smaller value to hit cross-chunk boundaries often. It never changes the
+    /// bytes seen, only how they are buffered.
+    chunk: usize,
 }
 
 fn valid_type(t: u8) -> bool {
@@ -85,6 +94,14 @@ fn find_terminator(buf: &[u8], from: usize) -> Option<usize> {
 
 impl<R: Read> Scanner<R> {
     pub fn new(r: R, max_nal: usize) -> Self {
+        Self::with_read_chunk(r, max_nal, CHUNK)
+    }
+
+    /// Build a scanner that reads in `chunk`-byte steps instead of the default
+    /// 8 MiB. A smaller chunk exercises the cross-chunk boundary logic far more
+    /// often and is much faster to fuzz; it does not change which bytes are
+    /// seen. `chunk` is clamped to `MIN_CHUNK..=MAX_CHUNK`.
+    pub fn with_read_chunk(r: R, max_nal: usize, chunk: usize) -> Self {
         Self {
             r,
             buf: Vec::new(),
@@ -94,6 +111,7 @@ impl<R: Read> Scanner<R> {
             hasher: Sha256::new(),
             total: 0,
             max_nal,
+            chunk: chunk.clamp(MIN_CHUNK, MAX_CHUNK),
         }
     }
 
@@ -102,10 +120,10 @@ impl<R: Read> Scanner<R> {
             return Ok(());
         }
         let old = self.buf.len();
-        self.buf.resize(old + CHUNK, 0);
+        self.buf.resize(old + self.chunk, 0);
         let mut got = 0;
         // Fill the whole chunk unless EOF, so short reads never look like EOF.
-        while got < CHUNK {
+        while got < self.chunk {
             let n = self.r.read(&mut self.buf[old + got..])?;
             if n == 0 {
                 self.eof = true;

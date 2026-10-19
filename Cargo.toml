@@ -2,8 +2,13 @@
 name = "alecto-forensic"
 version = "0.1.0"
 edition = "2021"
-license = "UNLICENSED"
-description = "Offline, read-only extraction of video from recorder disk images into a documented package"
+license = "Apache-2.0"
+description = "Offline, read-only carving of H.264 footage from recorder disk images into a verifiable extraction package"
+repository = "https://github.com/alecto-security/alecto-forensic"
+homepage = "https://github.com/alecto-security/alecto-forensic"
+readme = "README.md"
+keywords = ["forensics", "dfir", "h264", "carving", "disk-image"]
+categories = ["command-line-utilities", "multimedia::video", "filesystem"]
 
 [lib]
 name = "alecto_forensic"

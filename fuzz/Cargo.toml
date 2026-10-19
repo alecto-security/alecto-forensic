@@ -1,0 +1,39 @@
+[package]
+name = "alecto-forensic-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+serde_json = "1"
+sha2 = "0.10"
+hex = "0.4"
+
+[dependencies.alecto-forensic]
+path = ".."
+
+[[bin]]
+name = "fuzz_nal_scanner"
+path = "fuzz_targets/fuzz_nal_scanner.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_manifest_parser"
+path = "fuzz_targets/fuzz_manifest_parser.rs"
+test = false
+doc = false
+bench = false
+
+# This crate is its own workspace, so `cargo test` and `cargo clippy` at the
+# repo root never build it, and libfuzzer-sys never enters the root Cargo.lock.
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
